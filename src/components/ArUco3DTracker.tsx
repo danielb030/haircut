@@ -1,13 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { CameraPreview } from '@capacitor-community/camera-preview'
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Camera, CameraOff, RotateCcw, Wifi, CuboidIcon as Cube } from "lucide-react"
-import { Slider } from "@/components/ui/slider"
 import { IonPage, IonContent, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonButton, IonBadge, IonSpinner, IonGrid, IonRow, IonCol, IonIcon, IonAlert } from '@ionic/react';
 import * as THREE from "three"
 
