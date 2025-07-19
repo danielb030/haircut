@@ -546,7 +546,7 @@ export function ArUco3DTracker() {
     setStats((prev) => ({ ...prev, connectionStatus: "connecting" }))
 
     try {
-      wsRef.current = new WebSocket("wss://arcuo-backend.onrender.com/ws")
+      wsRef.current = new WebSocket("wss://api.fadeaway.com/ws")
 
       wsRef.current.onopen = () => {
         console.log("WebSocket connected for 3D tracking")
@@ -658,8 +658,8 @@ export function ArUco3DTracker() {
       await CameraPreview.start({
         parent: "cameraPreview", // The id of the div where the preview will be shown
         position: "rear",
-        // x: 50,
-        // y: 700,
+        x: 60,
+        y: 700,
         width: 320,
         height: 240,
         toBack: false,
