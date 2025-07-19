@@ -546,7 +546,7 @@ export function ArUco3DTracker() {
     setStats((prev) => ({ ...prev, connectionStatus: "connecting" }))
 
     try {
-      wsRef.current = new WebSocket("wss://arcuo-backend.onrender.com/ws")
+      wsRef.current = new WebSocket("wss://api.fadeaway.com/ws")
 
       wsRef.current.onopen = () => {
         console.log("WebSocket connected for 3D tracking")
