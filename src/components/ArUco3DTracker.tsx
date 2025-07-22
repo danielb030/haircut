@@ -173,7 +173,7 @@ class ThreeJSSceneManager {
     this.trackedPlane = new THREE.Group()
 
     // Main plane
-    const planeGeometry = new THREE.PlaneGeometry(2, 1.5)
+    const planeGeometry = new THREE.PlaneGeometry(1, 1)
     const planeMaterial = new THREE.MeshStandardMaterial({
       color: 0x00ff00,
       transparent: true,
@@ -474,51 +474,74 @@ export function ArUco3DTracker() {
     (marker: ArUcoMarker, imageWidth: number, imageHeight: number): MarkerPose => {
       const corners = marker.corners
 
-      // Calculate marker area for scale estimation
-      const area = Math.abs(
-        (corners[0][0] * (corners[1][1] - corners[3][1]) +
-          corners[1][0] * (corners[2][1] - corners[0][1]) +
-          corners[2][0] * (corners[3][1] - corners[1][1]) +
-          corners[3][0] * (corners[0][1] - corners[2][1])) /
-          2,
+      // Define 3D model points (assuming marker is at z=0, size 1x1)
+      const modelPoints = [
+        new THREE.Vector3(-0.5,  0.5, 0), // top-left
+        new THREE.Vector3( 0.5,  0.5, 0), // top-right
+        new THREE.Vector3( 0.5, -0.5, 0), // bottom-right
+        new THREE.Vector3(-0.5, -0.5, 0), // bottom-left
+      ]
+
+      // Convert 2D image points to normalized device coordinates (-1 to 1)
+      const imagePoints = corners.map(([x, y]) =>
+        new THREE.Vector3(
+          (x / imageWidth - 0.5) * 2,
+          -(y / imageHeight - 0.5) * 2,
+          0
+        )
       )
 
-      // Estimate distance based on marker size
-      const expectedArea = (markerSize * 1000) ** 2
-      const distance = Math.sqrt(expectedArea / area) * 5
+      // Estimate homography from modelPoints to imagePoints
+      // (For simplicity, use Three.js Matrix3 for 2D transform, but for real pose estimation use solvePnP)
+      // Here, we'll use a simple approximation for smooth animation:
+
+      // Compute vectors in image and model space
+      const vModelX = new THREE.Vector3().subVectors(modelPoints[1], modelPoints[0])
+      const vModelY = new THREE.Vector3().subVectors(modelPoints[3], modelPoints[0])
+      const vImageX = new THREE.Vector3().subVectors(imagePoints[1], imagePoints[0])
+      const vImageY = new THREE.Vector3().subVectors(imagePoints[3], imagePoints[0])
+
+      // Estimate rotation using cross products
+      const normalModel = new THREE.Vector3().crossVectors(vModelX, vModelY).normalize()
+      const normalImage = new THREE.Vector3().crossVectors(vImageX, vImageY).normalize()
+
+      // Find rotation quaternion from model normal to image normal
+      const quaternion = new THREE.Quaternion().setFromUnitVectors(normalModel, normalImage)
+
+      // Optionally, align X axis as well for more accuracy
+      const vModelXRotated = vModelX.clone().applyQuaternion(quaternion)
+      const alignQuat = new THREE.Quaternion().setFromUnitVectors(vModelXRotated.normalize(), vImageX.normalize())
+      quaternion.multiply(alignQuat)
+
+      // Convert quaternion to Euler angles
+      const rotation = new THREE.Euler().setFromQuaternion(quaternion, 'XYZ')
 
       // Calculate center position in normalized coordinates
       const centerX = (marker.center.x / imageWidth - 0.5) * 2
       const centerY = -(marker.center.y / imageHeight - 0.5) * 2
 
-      // Calculate rotation based on corner orientation
-      const dx = corners[1][0] - corners[0][0]
-      const dy = corners[1][1] - corners[0][1]
-      const rotationZ = Math.atan2(dy, dx)
+      // Estimate scale based on average edge length
+      const edgeLens = [
+        imagePoints[0].distanceTo(imagePoints[1]),
+        imagePoints[1].distanceTo(imagePoints[2]),
+        imagePoints[2].distanceTo(imagePoints[3]),
+        imagePoints[3].distanceTo(imagePoints[0]),
+      ]
+      const avgEdge = edgeLens.reduce((a, b) => a + b, 0) / edgeLens.length
+      const scale = Math.max(0.5, Math.min(2, avgEdge * 2))
 
-      // Estimate tilt based on perspective distortion
-      const topWidth = Math.sqrt((corners[1][0] - corners[0][0]) ** 2 + (corners[1][1] - corners[0][1]) ** 2)
-      const bottomWidth = Math.sqrt((corners[2][0] - corners[3][0]) ** 2 + (corners[2][1] - corners[3][1]) ** 2)
-      const leftHeight = Math.sqrt((corners[3][0] - corners[0][0]) ** 2 + (corners[3][1] - corners[0][1]) ** 2)
-      const rightHeight = Math.sqrt((corners[2][0] - corners[1][0]) ** 2 + (corners[2][1] - corners[1][1]) ** 2)
-
-      const rotationX = ((bottomWidth - topWidth) / (topWidth + bottomWidth)) * Math.PI * 0.5
-      const rotationY = ((rightHeight - leftHeight) / (leftHeight + rightHeight)) * Math.PI * 0.5
-
-      // Calculate confidence
-      const avgWidth = (topWidth + bottomWidth) / 2
-      const avgHeight = (leftHeight + rightHeight) / 2
-      const aspectRatio = avgWidth / avgHeight
-      const confidence = Math.max(0, 1 - Math.abs(aspectRatio - 1) * 2) * Math.min(1, area / 1000)
+      // Confidence based on how square the marker is
+      const aspectRatio = edgeLens[0] / edgeLens[1]
+      const confidence = Math.max(0, 1 - Math.abs(aspectRatio - 1) * 2)
 
       return {
-        position: new THREE.Vector3(centerX * distance * 0.5, centerY * distance * 0.5, -distance * 0.1),
-        rotation: new THREE.Euler(rotationX, rotationY, rotationZ),
-        scale: Math.max(0.5, Math.min(2, area / 5000)),
-        confidence: confidence,
+        position: new THREE.Vector3(centerX, centerY, 0),
+        rotation,
+        scale,
+        confidence,
       }
     },
-    [markerSize],
+    [markerSize]
   )
 
   // Initialize Three.js scene
