@@ -531,7 +531,7 @@ const calculateMarkerPose = useCallback(
     const confidence = Math.max(0, 1 - Math.abs(aspectRatio - 1) * 2)
 
     return {
-      position: new THREE.Vector3(centerX, centerY, 0),
+      position: new THREE.Vector3(centerX * 2, centerY * 2, 0),
       rotation,
       scale,
       confidence,
